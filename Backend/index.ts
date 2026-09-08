@@ -9,15 +9,21 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Menggunakan Gemini 3.5 Flash Lite (Cepat & Ringan)
+// Nama Model Gemini Resmi dari SDK @google/genai
 const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
-// Middleware
-app.use(cors());
+// 1. Perbaikan CORS Lengkap untuk Vercel Serverless Function
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['X-CSRF-Token', 'X-Requested-With', 'Accept', 'Accept-Version', 'Content-Length', 'Content-MD5', 'Content-Type', 'Date', 'X-Api-Version', 'Authorization']
+}));
+
 app.use(express.json());
 
-// Konfigurasi Multer
-const upload = multer({ dest: 'uploads/' });
+// Konfigurasi Multer (Penyimpanan Sementara di Memory untuk Serverless Vercel)
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Inisialisasi Google Gen AI
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -58,10 +64,10 @@ app.get('/favicon.ico', (req: Request, res: Response) => {
 
 // Endpoint Healthcheck
 app.get('/', (req: Request, res: Response) => {
-  res.send('Aplus AI Assistant Backend Aktif!');
+  res.send('Aplus AI Assistant Backend Aktif di Vercel!');
 });
 
-// Endpoint Text Generation
+// Endpoint Text Generation Utama
 app.post('/generate-text', async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
@@ -86,7 +92,7 @@ app.post('/generate-text', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint Chat (Support Upload File jika dibutuhkan)
+// Endpoint Chat (Support Upload File dengan MemoryStorage)
 app.post('/api/chat', upload.single('file'), async (req: Request, res: Response) => {
   try {
     const { message } = req.body;
@@ -111,7 +117,11 @@ app.post('/api/chat', upload.single('file'), async (req: Request, res: Response)
   }
 });
 
-// Jalankan Server
-app.listen(port, () => {
-  console.log(`⚡️ Server APLUSCOM Backend berjalan di http://localhost:${port}`);
-});
+// 2. Export default App untuk Vercel Serverless Function & local fallback
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`⚡️ Server APLUSCOM Backend berjalan di http://localhost:${port}`);
+  });
+}
+
+export default app;
